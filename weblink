@@ -1,0 +1,84 @@
+#!/bin/bash
+
+appName=$1
+appUrl=$2
+
+baseName=$(basename "$0")
+baseDir="$HOME/.local/share/applications"
+validUrlRegex='(https?|ftp|file)://[-[:alnum:]\+&@#/%?=~_|!:,.;]+'
+
+underline=`tput smul`
+noUnderline=`tput rmul`
+bold=`tput bold`
+normal=`tput sgr0`
+
+error() {
+    echo Incorrect usage of $baseName
+	echo Please use -h or --help option for further information
+}
+
+help() {
+	echo "$baseName creates a new .desktop file to $baseDir"
+	echo
+	echo "Usage: weblink [option] name url"
+	echo "${underline}name${noUnderline} is the name of the weblink you want to create e.g. Google for www.google.com"
+	echo "${underline}url${noUnderline} is the link to the website you want to use e.g. www.google.com"
+	echo
+	echo "Options:"
+	echo "h		Print this help."
+	echo "l		List all weblinks in $baseDir"
+	echo
+}
+
+list() {
+    for dir in "$baseDir"/*; do
+		fname="${dir##*/}"
+		if [[ "${fname:0:1}" =~ [A-Z] ]]; then
+			echo "${fname%.*}"
+		fi
+    done
+}
+
+warn() {
+	echo "Before creating the weblink, it is required that you download an image to act as the weblinks icon."
+	echo "Please save the image to ${bold}$HOME/Pictures/ShortcutIcons/$appName.png${normal}."
+	echo "You should not continue if the above directory does not exist."
+	echo "Would you like to continue? (Y|N)"
+}
+
+create() {
+	cat >~/.local/share/applications/$appName.desktop <<-EOL
+		[Desktop Entry]
+    	Name=$appName
+    	Categories=Webapp
+    	Type=Application
+    	Exec=xdg-open "$appUrl"
+    	Icon=$HOME/Pictures/ShortcutIcons/$appName.png
+    	Comment=loads Webapp into default browser
+	EOL
+}
+
+while getopts ":hl" option; do
+	case $option in
+		h)
+			help
+			exit;;
+		l)
+			list
+			exit;;
+		\?)
+			error
+			exit;;
+	esac
+done
+
+if ! [[ $# == 2 && $appUrl =~ $validUrlRegex ]]; then
+	error
+	exit 1
+fi
+
+warn
+read resp
+if [[ $resp == "Y" ]]; then
+	create
+fi
