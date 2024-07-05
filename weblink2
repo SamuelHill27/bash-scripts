@@ -1,0 +1,87 @@
+#!/bin/bash
+
+appName=$1
+appUrl=$2
+
+scriptName=$(basename "$0")
+baseDir="$HOME/.local/share/applications"
+validUrlRegex='(https?|ftp|file)://[-[:alnum:]\+&@#/%?=~_|!:,.;]+'
+
+underline=`tput smul`
+noUnderline=`tput rmul`
+bold=`tput bold`
+normal=`tput sgr0`
+
+error() {
+	echo "Incorrect usage of $scriptName"
+	echo "Please use -h or --help option for further information"
+}
+
+help() {
+	echo "$scriptName creates a new desktop file to "
+	echo $baseDir
+	echo
+	echo "${bold}Usage${normal}: weblink [option] name url"
+	echo "${bold}name${normal} is the name of the weblink you want to create e.g. Google, Netflix, etc..."
+	echo "${bold}url${normal} is the link to the website you want to use e.g. www.google.com"
+	echo
+	echo "Options:"
+	echo " - ${bold}h${normal}        Print this help."
+	echo " - ${bold}l${normal}        List all weblinks in $baseDir"
+}
+
+list() {
+    for dir in "$baseDir"/*; do
+		fname="${dir##*/}"
+		if [[ "${fname:0:1}" =~ [A-Z] ]]; then
+			echo "${fname%.*}"
+		fi
+    done
+}
+
+create() {
+	cat >~/.local/share/applications/$appName.desktop <<-EOL
+		[Desktop Entry]
+    	Name=$appName
+    	Categories=Webapp
+    	Type=Application
+    	Exec=xdg-open "$appUrl"
+    	Icon=$HOME/Pictures/weblink-icons/$appName.png
+    	Comment=loads Webapp into default browser
+	EOL
+
+	echo "Desktop file $appName.png has been successfully created."
+	echo "You can list all created desktop files through the -l flag."
+}
+
+iconDisclaimer() {
+	echo "Please note that this script has not provided an icon for the desktop file."
+	echo
+	echo "You can provide an icon by creating the path below:"
+	echo "    ${bold}~/Pictures/weblink-icons/$appName.png${normal}"
+	echo
+	echo "By not supplying the above path, your weblink will be invisible, however, you"
+	echo "can provide an image at any time and the desktop will update accordingly."
+}
+
+while getopts ":hld" option; do
+	case $option in
+		h)
+			help
+			exit;;
+		l)
+			list
+			exit;;
+		\?)
+			error
+			exit;;
+	esac
+done
+
+if ! [[ $# == 2 && $appUrl =~ $validUrlRegex ]]; then
+	error
+	exit 1
+fi
+
+create
+iconDisclaimer
