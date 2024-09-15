@@ -8,7 +8,7 @@ normal=`tput sgr0`
 scriptName=$(basename $0)
 baseDir="$HOME/.local/share/applications"
 scriptDir=$(dirname $0)
-listName="$scriptDir/weblink2-list.txt"
+listName="$scriptDir/weblink3-list.txt"
 
 error() {
 	# echo error message if one has been provided
