@@ -1,0 +1,126 @@
+#!/bin/bash
+
+underline=`tput smul`
+noUnderline=`tput rmul`
+bold=`tput bold`
+normal=`tput sgr0`
+
+scriptName=$(basename $0)
+baseDir="$HOME/.local/share/applications"
+scriptDir=$(dirname $0)
+listName="$scriptDir/weblink2-list.txt"
+
+error() {
+	# echo error message if one has been provided
+	if [ $# -gt 0 ]; then
+		echo "$0: $1"
+	fi
+
+	echo "Incorrect usage of $scriptName"
+	echo "Please use -h or --help option for further information"
+}
+
+help() {
+	echo "$scriptName creates a new desktop file to "
+	echo $baseDir
+	echo
+	echo "${bold}Usage${normal}: weblink [option] name url"
+	echo "${bold}name${normal} is the name of the weblink you want to create" \
+			" e.g. Google, Netflix, etc..."
+	echo "${bold}url${normal} is the link to the website you want to use" \
+			"e.g. www.google.com"
+	echo
+	echo "Options:"
+	echo " - ${bold}h${normal}        Print this help"
+	echo " - ${bold}l${normal}        List all previously created weblinks"
+	echo " - ${bold}r${normal}        remove previously created weblink"
+}
+
+list() {
+	if [ -s $listName ]; then
+		cat $listName
+	else
+		echo "No weblinks have been added."
+	fi
+}
+
+create() {
+	validUrlRegex='(https?|ftp|file)://[-[:alnum:]\+&@#/%?=~_|!:,.;]+'
+
+	appName=$1
+	appUrl=$2
+
+	# validate if second argument is a url
+	if ! [[ $appUrl =~ $validUrlRegex ]]; then
+		error "url argument is not recognized as a url"
+		exit 1
+	fi
+
+	# create new .desktop file
+	cat >~/.local/share/applications/$appName.desktop <<-EOL
+		[Desktop Entry]
+    	Name=$appName
+    	Categories=Webapp
+    	Type=Application
+    	Exec=xdg-open "$appUrl"
+    	Icon=$HOME/Pictures/weblink-icons/$appName.png
+    	Comment=loads Webapp into default browser
+	EOL
+
+	# add new file name to list file for list functionality
+	echo $appName >> $listName
+
+	echo "Desktop file $appName.png has been successfully created."
+
+	iconDisclaimer $appName
+}
+
+remove() {
+	appName=$1
+
+	if ! [ -f "$baseDir/$appName.desktop" ]; then
+		echo "$appName.desktop does not exist in $baseDir"
+		exit 1
+	fi
+
+	rm "$baseDir/$appName.desktop"
+	sed -i "/$appName/d" $listName
+
+	echo "$appName has been removed"
+}
+
+iconDisclaimer() {
+	echo "Please note that this script has not provided an icon for the" \
+			"desktop file."
+	echo
+	echo "You can provide an icon by adding an icon with the below path:"
+	echo "    ${bold}~/Pictures/weblink-icons/$appName.png${normal}"
+	echo
+	echo "By not supplying the above path, your weblink will be invisible," \
+			"however, you can provide an image at any time and it" \
+			"will update accordingly."
+}
+
+while getopts "hlr:" option; do
+	case $option in
+		h)
+			help
+			exit;;
+		l)
+			list
+			exit;;
+		r)
+			remove $2
+			exit;;
+		\?)
+			error
+			exit;;
+	esac
+done
+
+# determine if atleast two arguments have been passed
+if [ $# -gt 1 ]; then
+	create $1 $2
+else
+	error "two arguments required"
+fi
