@@ -1,7 +1,7 @@
 # weblink
 
 ### description
-bash script designed to create .desktop files for urls. the .desktop file will open in your default browser.
+bash script designed to create .desktop files for urls. The .desktop file will open in your default browser.
 
 ### execution
 the bash file takes two arguments: a name and url.
