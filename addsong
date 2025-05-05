@@ -1,0 +1,157 @@
+#!/bin/bash
+
+underline=`tput smul`
+noUnderline=`tput rmul`
+bold=`tput bold`
+normal=`tput sgr0`
+
+scriptName=$(basename $0)
+scriptDir=$(dirname $0)
+
+musicFolder="/home/samuelhill/Music/spotify-downloaded"
+audioExt="mp3"
+browser="firefox"
+
+error() {
+	# echo error message if one has been provided
+	if [ $# -gt 0 ]; then
+		echo "$0: $1"
+	fi
+
+	echo "Incorrect usage of $scriptName"
+	echo "Please use -h or --help option for further information"
+}
+
+help() {
+	echo "$scriptName downloads a youtube $audioExt file to "
+	echo $musicFolder
+    echo
+	echo "${bold}Usage${normal}: $scriptName [option] playlist [title] url"
+    echo "${bold}playlist${normal} is the name of the playlist you want to" \
+			"download the ${audioExt} file to."
+	echo "${bold}title${normal} is to override the mp3 file name"
+	echo "${bold}url${normal} is the link to the youtube video you want to" \
+			"download the ${audioExt} file of."
+	echo
+	echo "Options:"
+	echo " - ${bold}h${normal}        Print this help"
+	echo " - ${bold}l${normal}        List all playlists (top level folders)" \
+            "in the hardcoded directory."
+	echo
+	echo "${bold}Dependencies${normal}:"
+	echo "${bold}yt-dlp${normal} is the python program responsible for" \
+			"downloading from youtube."
+	echo "${underline}https://github.com/yt-dlp/yt-dlp${noUnderline}"
+	echo "${bold}ffmpeg${normal} used for metadata manipulation."
+	echo "${underline}https://www.ffmpeg.org/${noUnderline}"
+	echo "${bold}magick${normal} responsible for post processing done on" \
+			"downloaded cover image."
+	echo "${underline}https://imagemagick.org/${noUnderline}"
+	echo "${bold}eyeD3${normal} used for metadata manipulation."
+	echo "${underline}https://eyed3.readthedocs.io/en/latest/${noUnderline}"
+}
+
+listMusicFolder() {
+    # get basename of folder directories
+	playlistNames=$(basename -a $(ls -d $musicFolder/*/))
+
+    # Loop through the array and print in three columns
+    for name in "${playlistNames[@]}"; do 
+        printf "%-8s\n" "${name}"
+    done | column
+}
+
+validateUrl() {
+	validUrlRegex='(https?|ftp|file)://[-[:alnum:]\+&@#/%?=~_|!:,.;]+'
+
+	# validate if first argument is a url
+	if ! [[ $1 =~ $validUrlRegex ]]; then
+		error "url argument is not recognized as a url"
+		exit 1
+	fi
+}
+
+validatePlaylist() {
+	# get array of folder directory basenames (names of playlists)
+	playlistNames=$(basename -a $(ls -d $musicFolder/*/))
+
+	playlistRegex="\<${1}\>" 
+
+	if ! [[ ${playlistNames[@]} =~ $playlistRegex ]]; then
+		error "playlist does not exist"
+		exit 1
+	fi
+}
+
+addSong() {
+	url=$1
+	playlist=$2
+	songTitle=$3
+
+	validateUrl $url
+	validatePlaylist $playlist
+
+    cd $musicFolder
+
+    # Update yt-dlp if needed, then download mp3 (with metadata) and youtube 
+    # thumbnail
+	echo "Checking yt-dlp is up-to-date"
+    yt-dlp -q -U
+	echo "Downloading ${audioExt} and thumbnail"
+    yt-dlp -q -x --audio-format $audioExt --cookies-from-browser $browser --add-metadata --write-thumbnail \
+            -o "temp.%(ext)s" --convert-thumbnails jpg $url
+
+    # Create new cropped thumbnail and remove old
+	echo "Post-processing thumbnail"
+    magick "temp.jpg" -gravity Center -crop 1:1 "cover.jpg"
+    rm temp.jpg
+
+    # Gets the song name from the mp3 metadata
+	echo "Getting song title metadata from file"
+	if [[ $songTitle = "null" ]]; then
+    	songTitle=$(ffprobe -v quiet -show_entries format_tags=title \
+            	-of default=noprint_wrappers=1:nokey=1 temp.$audioExt)
+	else 
+		eyeD3 -t "$songTitle" "temp.$audioExt" > /dev/null
+	fi
+	songRelPath="$playlist/$songTitle.$audioExt"
+
+    # Create new mp3 in target folder, copying over metadata and embedding 
+    # cropped thumbnail, and remove old mp3 and cover image
+	echo "Embedding thumbnail"
+    ffmpeg -loglevel warning -i temp.$audioExt -i cover.jpg -c:a copy -c:v mjpeg \
+            -id3v2_version 3 -map 0 -map 1 -map_metadata 0 "$songRelPath"
+    rm temp.$audioExt
+    rm cover.jpg
+
+	# Add download url as comment metadata
+	echo "Adding download url as comment metadata"
+	eyeD3 --remove-frame="TXXX" "$songRelPath" > /dev/null
+	eyeD3 --comment="$url" "$songRelPath" > /dev/null
+
+	echo "Song added!"
+	echo "$songTitle saved to $musicFolder/$songRelPath"
+}
+
+while getopts "hl" option; do
+	case $option in
+		h)
+			help
+			exit;;
+		l)
+			listMusicFolder
+			exit;;
+		\?)
+			error
+			exit;;
+	esac
+done
+
+# determine if at least two arguments have been passed
+if [ $# -gt 2 ]; then
+	addSong $3 $1 $2
+elif [ $# -gt 1 ]; then
+	addSong $2 $1 "null"
+else
+	error "at least two arguments required"
+fi

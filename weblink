@@ -1,64 +1,110 @@
 #!/bin/bash
 
-appName=$1
-appUrl=$2
-
-baseName=$(basename "$0")
-baseDir="$HOME/.local/share/applications"
-validUrlRegex='(https?|ftp|file)://[-[:alnum:]\+&@#/%?=~_|!:,.;]+'
-
 underline=`tput smul`
 noUnderline=`tput rmul`
 bold=`tput bold`
 normal=`tput sgr0`
 
+scriptName=$(basename $0)
+scriptDir=$(dirname $0)
+
+baseDir="$HOME/.local/share/applications"
+listName="$scriptDir/weblink-list.txt"
+
 error() {
-    echo Incorrect usage of $baseName
-	echo Please use -h or --help option for further information
+	# echo error message if one has been provided
+	if [ $# -gt 0 ]; then
+		echo "$0: $1"
+	fi
+
+	echo "Incorrect usage of $scriptName"
+	echo "Please use -h or --help option for further information"
 }
 
 help() {
-	echo "$baseName creates a new .desktop file to $baseDir"
+	echo "$scriptName creates a new desktop file to "
+	echo $baseDir
 	echo
-	echo "Usage: weblink [option] name url"
-	echo "${underline}name${noUnderline} is the name of the weblink you want to create e.g. Google for www.google.com"
-	echo "${underline}url${noUnderline} is the link to the website you want to use e.g. www.google.com"
+	echo "${bold}Usage${normal}: ${scriptName} [option] name url"
+	echo "${bold}name${normal} is the name of the weblink you want to create."
+	echo "${bold}url${normal} is the link to the website you want to use."
 	echo
 	echo "Options:"
-	echo "h		Print this help."
-	echo "l		List all weblinks in $baseDir"
-	echo
+	echo " - ${bold}h${normal}        Print this help"
+	echo " - ${bold}l${normal}        List all previously created weblinks"
+	echo " - ${bold}r${normal}        remove previously created weblink"
 }
 
 list() {
-    for dir in "$baseDir"/*; do
-		fname="${dir##*/}"
-		if [[ "${fname:0:1}" =~ [A-Z] ]]; then
-			echo "${fname%.*}"
-		fi
-    done
+	if [ -s $listName ]; then
+		cat $listName
+	else
+		echo "No weblinks have been added."
+	fi
 }
 
-warn() {
-	echo "Before creating the weblink, it is required that you download an image to act as the weblinks icon."
-	echo "Please save the image to ${bold}$HOME/Pictures/ShortcutIcons/$appName.png${normal}."
-	echo "You should not continue if the above directory does not exist."
-	echo "Would you like to continue? (Y|N)"
+validateUrl() {
+	validUrlRegex='(https?|ftp|file)://'
+
+	# validate if first argument is a url
+	if ! [[ $1 =~ $validUrlRegex ]]; then
+		error "url argument is not recognized as a url"
+		exit 1
+	fi
 }
 
 create() {
+	appName=$1
+	appUrl=$2
+
+	validateUrl $appUrl
+
+	# create new .desktop file
 	cat >~/.local/share/applications/$appName.desktop <<-EOL
 		[Desktop Entry]
     	Name=$appName
     	Categories=Webapp
     	Type=Application
     	Exec=xdg-open "$appUrl"
-    	Icon=$HOME/Pictures/ShortcutIcons/$appName.png
+    	Icon=$HOME/Pictures/weblink-icons/$appName.png
     	Comment=loads Webapp into default browser
 	EOL
+
+	# add new file name to list file for list functionality
+	echo $appName >> $listName
+
+	echo "Desktop file $appName.desktop has been successfully created."
+
+	iconDisclaimer $appName
 }
 
-while getopts ":hl" option; do
+remove() {
+	appName=$1
+
+	if ! [ -f "$baseDir/$appName.desktop" ]; then
+		echo "$appName.desktop does not exist in $baseDir"
+		exit 1
+	fi
+
+	rm "$baseDir/$appName.desktop"
+	sed -i "/$appName/d" $listName
+
+	echo "$appName has been removed"
+}
+
+iconDisclaimer() {
+	echo "Please note that this script has not provided an icon for the" \
+			"desktop file."
+	echo
+	echo "You can provide an icon by adding an icon with the below path:"
+	echo "    ${bold}~/Pictures/weblink-icons/$appName.png${normal}"
+	echo
+	echo "By not supplying the above path, your weblink will be invisible," \
+			"however, you can provide an image at any time and it" \
+			"will update accordingly."
+}
+
+while getopts "hlr:" option; do
 	case $option in
 		h)
 			help
@@ -66,19 +112,18 @@ while getopts ":hl" option; do
 		l)
 			list
 			exit;;
+		r)
+			remove $2
+			exit;;
 		\?)
 			error
 			exit;;
 	esac
 done
 
-if ! [[ $# == 2 && $appUrl =~ $validUrlRegex ]]; then
-	error
-	exit 1
-fi
-
-warn
-read resp
-if [[ $resp == "Y" ]]; then
-	create
+# determine if at least two arguments have been passed
+if [ $# -gt 1 ]; then
+	create $1 $2
+else
+	error "two arguments required"
 fi

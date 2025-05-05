@@ -1,0 +1,66 @@
+#!/bin/bash
+
+underline=`tput smul`
+noUnderline=`tput rmul`
+bold=`tput bold`
+normal=`tput sgr0`
+
+scriptName=$(basename $0)
+scriptDir=$(dirname $0)
+
+error() {
+	# echo error message if one has been provided
+	if [ $# -gt 0 ]; then
+		echo "$0: $1"
+	fi
+
+	echo "Incorrect usage of $scriptName"
+	echo "Please use -h or --help option for further information"
+}
+
+help() {
+	echo "$scriptName provides simplified systemd syncthing.service commands"
+	echo
+	echo "${bold}Usage${normal}: ${scriptName} [option] command"
+	echo "${bold}command${normal} is the name of the weblink you want to create."
+	echo
+	echo "Options:"
+	echo " - ${bold}h${normal}        Print this help"
+    echo
+    echo "Commands:"
+    echo " - ${bold}status${normal}         Alias for 'systemctl --user" \
+            "status syncthing.service'"
+    echo " - ${bold}enable${normal}         Alias for 'systemctl --user" \
+            "enable syncthing.service'"
+    echo " - ${bold}start${normal}         Alias for 'systemctl --user" \
+            "start syncthing.service'"
+}
+
+syncthing() {
+    case "$1" in
+        "status")
+            systemctl --user status syncthing.service;;
+        "enable")
+            systemctl --user enable syncthing.service;;
+        "start")
+            systemctl --user start syncthing.service;;
+    esac
+}
+
+while getopts "h" option; do
+	case $option in
+		h)
+			help
+			exit;;
+		\?)
+			error
+			exit;;
+	esac
+done
+
+# determine if an argument has been passed
+if [ $# -gt 0 ]; then
+	syncthing $1
+else
+	error "an argument is required"
+fi
