@@ -26,12 +26,12 @@ help() {
 	echo "$scriptName downloads a youtube $audioExt file to "
 	echo $musicFolder
     echo
-	echo "${bold}Usage${normal}: $scriptName [option] playlist [title] url"
+	echo "${bold}Usage${normal}: $scriptName [option] playlist url [title]"
     echo "${bold}playlist${normal} is the name of the playlist you want to" \
 			"download the ${audioExt} file to."
-	echo "${bold}title${normal} is to override the mp3 file name"
 	echo "${bold}url${normal} is the link to the youtube video you want to" \
 			"download the ${audioExt} file of."
+	echo "${bold}title${normal} is to override the mp3 file name"
 	echo
 	echo "Options:"
 	echo " - ${bold}h${normal}        Print this help"
@@ -84,8 +84,8 @@ validatePlaylist() {
 }
 
 addSong() {
-	url=$1
-	playlist=$2
+	playlist=$1
+	url=$2
 	songTitle=$3
 
 	validateUrl $url
@@ -149,9 +149,9 @@ done
 
 # determine if at least two arguments have been passed
 if [ $# -gt 2 ]; then
-	addSong $3 $1 $2
+	addSong $1 $2 "$3"
 elif [ $# -gt 1 ]; then
-	addSong $2 $1 "null"
+	addSong $1 $2 "null"
 else
 	error "at least two arguments required"
 fi
