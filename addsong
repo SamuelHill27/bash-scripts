@@ -1,4 +1,4 @@
-#!/bin/bash
+##!/bin/bash
 
 underline=`tput smul`
 noUnderline=`tput rmul`
@@ -8,7 +8,7 @@ normal=`tput sgr0`
 scriptName=$(basename $0)
 scriptDir=$(dirname $0)
 
-musicFolder="/home/samuelhill/Music/spotify-downloaded"
+musicFolder="$HOME/Music/spotify-downloaded"
 audioExt="mp3"
 browser="firefox"
 
@@ -37,18 +37,12 @@ help() {
 	echo " - ${bold}h${normal}        Print this help"
 	echo " - ${bold}l${normal}        List all playlists (top level folders)" \
             "in the hardcoded directory."
+	echo " - ${bold}r${normal}	  Remove song (mp3 and entry in m3u file)"
 	echo
 	echo "${bold}Dependencies${normal}:"
 	echo "${bold}yt-dlp${normal} is the python program responsible for" \
 			"downloading from youtube."
 	echo "${underline}https://github.com/yt-dlp/yt-dlp${noUnderline}"
-	echo "${bold}ffmpeg${normal} used for metadata manipulation."
-	echo "${underline}https://www.ffmpeg.org/${noUnderline}"
-	echo "${bold}magick${normal} responsible for post processing done on" \
-			"downloaded cover image."
-	echo "${underline}https://imagemagick.org/${noUnderline}"
-	echo "${bold}eyeD3${normal} used for metadata manipulation."
-	echo "${underline}https://eyed3.readthedocs.io/en/latest/${noUnderline}"
 }
 
 listMusicFolder() {
@@ -59,6 +53,22 @@ listMusicFolder() {
     for name in "${playlistNames[@]}"; do 
         printf "%-8s\n" "${name}"
     done | column
+}
+
+removeSong() {
+	songName=$1
+
+	songPath=$(find $musicFolder -type f -name "$songName")
+
+	rm "$songPath"
+
+	songDir=$(dirname "$songPath")
+	cd "$songDir"
+
+	playlist=$(basename "$songDir")	
+	ls -1 *.$audioExt > $playlist.m3u
+
+	echo "$songName removed"
 }
 
 validateUrl() {
@@ -91,55 +101,35 @@ addSong() {
 	validateUrl $url
 	validatePlaylist $playlist
 
-    cd $musicFolder
+	cd $musicFolder/$playlist
 
-    # Update yt-dlp if needed, then download mp3 (with metadata) and youtube 
-    # thumbnail
+	# Update yt-dlp
 	echo "Checking yt-dlp is up-to-date"
-    yt-dlp -q -U
+	yt-dlp -q -U
+
+	# Extract audio and embed metadata (including thumbnail) from url
 	echo "Downloading ${audioExt} and thumbnail"
-    yt-dlp -q -x --audio-format $audioExt --cookies-from-browser $browser --add-metadata --write-thumbnail \
-            -o "temp.%(ext)s" --convert-thumbnails jpg $url
+	yt-dlp -q -x --audio-format $audioExt --add-metadata -o "$songTitle" \
+		--ppa "EmbedThumbnail+ffmpeg_o:-c:v mjpeg -vf crop=\"'if(gt(ih,iw),iw,ih)':'if(gt(iw,ih),ih,iw)'\"" \
+		--embed-thumbnail $url
 
-    # Create new cropped thumbnail and remove old
-	echo "Post-processing thumbnail"
-    magick "temp.jpg" -gravity Center -crop 1:1 "cover.jpg"
-    rm temp.jpg
-
-    # Gets the song name from the mp3 metadata
-	echo "Getting song title metadata from file"
-	if [[ $songTitle = "null" ]]; then
-    	songTitle=$(ffprobe -v quiet -show_entries format_tags=title \
-            	-of default=noprint_wrappers=1:nokey=1 temp.$audioExt)
-	else 
-		eyeD3 -t "$songTitle" "temp.$audioExt" > /dev/null
-	fi
-	songRelPath="$playlist/$songTitle.$audioExt"
-
-    # Create new mp3 in target folder, copying over metadata and embedding 
-    # cropped thumbnail, and remove old mp3 and cover image
-	echo "Embedding thumbnail"
-    ffmpeg -loglevel warning -i temp.$audioExt -i cover.jpg -c:a copy -c:v mjpeg \
-            -id3v2_version 3 -map 0 -map 1 -map_metadata 0 "$songRelPath"
-    rm temp.$audioExt
-    rm cover.jpg
-
-	# Add download url as comment metadata
-	echo "Adding download url as comment metadata"
-	eyeD3 --remove-frame="TXXX" "$songRelPath" > /dev/null
-	eyeD3 --comment="$url" "$songRelPath" > /dev/null
+	# Overwrite m3u file with newly added song
+	ls -1 *.$audioExt > $playlist.m3u
 
 	echo "Song added!"
 	echo "$songTitle saved to $musicFolder/$songRelPath"
 }
 
-while getopts "hl" option; do
+while getopts "hlr:" option; do
 	case $option in
 		h)
 			help
 			exit;;
 		l)
 			listMusicFolder
+			exit;;
+		r)
+			removeSong "$OPTARG"
 			exit;;
 		\?)
 			error
@@ -149,9 +139,9 @@ done
 
 # determine if at least two arguments have been passed
 if [ $# -gt 2 ]; then
-	addSong $1 $2 "$3"
+	addSong2 $1 $2 "$3"
 elif [ $# -gt 1 ]; then
-	addSong $1 $2 "null"
+	addSong2 $1 $2 "%(artist)s - %(title)s.%(ext)s"
 else
 	error "at least two arguments required"
 fi
