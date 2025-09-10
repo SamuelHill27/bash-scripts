@@ -39,17 +39,50 @@ def get_args(parser):
         help="List all available playlists"
     )
 
+    parser.add_argument(
+        "-r", "--remove",
+        type=str,
+        help="Remove a song from the music library"
+    )
+
+
+def write_to_m3u(playlist):
+    with open(f"{music_home_dir}/{playlist}/{playlist}.m3u", 'w+') as f:
+            for file in glob.glob(os.path.join(f"{music_home_dir}/{playlist}", f'*{audio_ext}')):
+                f.write(f"{os.path.basename(file)}\n")
+
+
+def remove_song(target_name):
+    search_path = os.path.join(music_home_dir, '**', f'{target_name}{audio_ext}')
+    song_paths = glob.glob(search_path, recursive=True)
+                
+    if song_paths is None:
+        print(color_text(f"Error: Song '{target_name}' not found in any playlist", ansi_red))
+        exit(1)
+
+    os.remove(song_paths[0])
+
+    playlist = "music library"
+    if os.path.dirname(song_paths[0]) != music_home_dir:
+        playlist = os.path.basename(os.path.dirname(song_paths[0]))
+        write_to_m3u(playlist)
+
+    print(f"Removed '{target_name}' from {playlist}")
+
 
 def handle_args(parser):
     args, _ = parser.parse_known_args()
 
     global verbose 
     verbose = args.verbose
-    
     if verbose: print("Verbose mode enabled")
 
     if args.list:
         list_playlists()
+        exit(0)
+
+    if args.remove is not None:
+        remove_song(args.remove)
         exit(0)
 
 
@@ -130,6 +163,11 @@ def download_song(args):
     if not verbose: cmd.insert(1, "-q")
 
     try:
+        if subprocess.run(['which', 'yt-dlp'], capture_output=True).returncode != 0:
+            print("yt-dlp not found, installing...")
+            subprocess.run(['pip', 'install', '--upgrade', 'yt-dlp'], check=True)
+            print("yt-dlp installed successfully")
+
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
         print(color_text(f"Error: {e}", ansi_red))
@@ -170,12 +208,10 @@ def main():
     most_recent_mp3_file = max(mp3_files, key=os.path.getctime)
     song_name = os.path.basename(most_recent_mp3_file).rsplit('.', 1)[0]
 
-    print(f'"{song_name}" saved to {os.path.join(music_home_dir, args.playlist)}')
+    print(f'"{song_name}" added to {args.playlist}')
 
     if args.playlist != music_home_dir:
-        with open(f"{music_home_dir}/{args.playlist}/{args.playlist}.m3u", 'w+') as f:
-            for file in glob.glob(os.path.join(f"{music_home_dir}/{args.playlist}", f'*{audio_ext}')):
-                f.write(f"{os.path.basename(file)}\n")
+        write_to_m3u(args.playlist)
 
 
 if __name__ == "__main__":
