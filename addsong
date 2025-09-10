@@ -5,4 +5,4 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
-python3 ~/bin/add_song.py "$@" # pass all arguments to python script
+python3 "$(dirname "$0")/add_song.py" "$@" # pass all arguments to python script
