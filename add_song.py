@@ -3,6 +3,8 @@ import os
 import subprocess
 import glob
 import configparser
+from mutagen.mp3 import MP3
+from mutagen.id3 import TIT2, TPE1, TIT1
 
 config = configparser.ConfigParser()
 config.read(os.path.join(os.path.dirname(__file__), 'config.ini'))
@@ -115,6 +117,7 @@ def get_metadata_args(parser):
     parser.add_argument(
         "-s", "--show",
         type=str,
+        default="",
         help="The show for the songs metadata you want to specify"
     )
 
@@ -123,7 +126,7 @@ def get_user_input(args, parser):
     if (args.playlist == parser.get_default("playlist") and
         args.title == parser.get_default("title") and
         args.artist == parser.get_default("artist") and
-        args.show is None 
+        args.show == ""
     ):
         list_playlists()
         args.playlist = input(f"Enter playlist from above (skip for none): ") or args.playlist
@@ -143,10 +146,6 @@ def validate_args(args):
 
 
 def download_song(args):
-    metadata = f"title:{args.title},artist:{args.artist}"
-    if args.show is not None:
-        metadata += f",show:{args.show}"
-
     artist_or_blank = f"{args.artist} - " if args.artist != "Unknown Artist" else ""
     show_or_blank = f" ({args.show})" if args.show is not None else ""
     filename = f"{artist_or_blank}{args.title}{show_or_blank}{audio_ext}"
@@ -156,11 +155,10 @@ def download_song(args):
         "-x",
         "--audio-format", audio_ext.lstrip('.'),
         "--audio-quality", "0",
-        "--cookies-from-browser", browser,
+        # "--cookies-from-browser", browser,
         "--ppa", "EmbedThumbnail+ffmpeg_o:-c:v mjpeg -vf crop=\"'if(gt(ih,iw),iw,ih)':'if(gt(iw,ih),ih,iw)'\"",
         "--embed-thumbnail",
         "--add-metadata",
-        "--parse-metadata", metadata,
         "-o", os.path.join(music_home_dir, args.playlist, filename),
         args.url
     ]
@@ -175,6 +173,18 @@ def download_song(args):
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
         print(color_text(f"Error: {e}", ansi_red))
+        exit(1)
+
+
+def set_metadata(file_path, args):
+    try:
+        audio = MP3(file_path)
+        audio.tags["TIT2"] = TIT2(encoding=3, text=args.title)
+        audio.tags["TPE1"] = TPE1(encoding=3, text=args.artist)
+        audio.tags["TIT1"] = TIT1(encoding=3, text=args.show)
+        audio.save()
+    except Exception as e:
+        print(color_text(f"Error setting metadata: {e}", ansi_red))
         exit(1)
 
 
@@ -210,8 +220,11 @@ def main():
 
     mp3_files = glob.glob(os.path.join(music_home_dir, f'*{audio_ext}')) + glob.glob(os.path.join(music_home_dir, args.playlist, f'*{audio_ext}'))
     most_recent_mp3_file = max(mp3_files, key=os.path.getctime)
-    song_name = os.path.basename(most_recent_mp3_file).rsplit('.', 1)[0]
 
+    print("Setting metadata...")
+    set_metadata(most_recent_mp3_file, args)
+
+    song_name = os.path.basename(most_recent_mp3_file).rsplit('.', 1)[0]
     print(f'"{song_name}" added to {args.playlist}')
 
     if args.playlist != music_home_dir:
