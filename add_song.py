@@ -7,7 +7,7 @@ import configparser
 config = configparser.ConfigParser()
 config.read(os.path.join(os.path.dirname(__file__), 'config.ini'))
 
-music_home_dir = config['addsong']['music_home_dir']
+music_home_dir = os.path.expanduser(config['addsong']['music_home_dir'])
 audio_ext = config['addsong']['audio_ext']
 browser = config['addsong']['browser']
 
