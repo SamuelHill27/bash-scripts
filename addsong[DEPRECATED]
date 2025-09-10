@@ -1,4 +1,4 @@
-##!/bin/bash
+#!/bin/bash
 
 underline=`tput smul`
 noUnderline=`tput rmul`
@@ -8,7 +8,7 @@ normal=`tput sgr0`
 scriptName=$(basename $0)
 scriptDir=$(dirname $0)
 
-musicFolder="$HOME/Music/spotify-downloaded"
+musicFolder="$HOME/Music/Songs"
 audioExt="mp3"
 browser="firefox"
 
@@ -110,6 +110,7 @@ addSong() {
 	# Extract audio and embed metadata (including thumbnail) from url
 	echo "Downloading ${audioExt} and thumbnail"
 	yt-dlp -q -x --audio-format $audioExt --add-metadata -o "$songTitle" \
+		--cookies-from-browser $browser \
 		--ppa "EmbedThumbnail+ffmpeg_o:-c:v mjpeg -vf crop=\"'if(gt(ih,iw),iw,ih)':'if(gt(iw,ih),ih,iw)'\"" \
 		--embed-thumbnail $url
 
@@ -117,7 +118,7 @@ addSong() {
 	ls -1 *.$audioExt > $playlist.m3u
 
 	echo "Song added!"
-	echo "$songTitle saved to $musicFolder/$songRelPath"
+	echo "Song saved to $musicFolder/$songRelPath"
 }
 
 while getopts "hlr:" option; do
@@ -139,9 +140,9 @@ done
 
 # determine if at least two arguments have been passed
 if [ $# -gt 2 ]; then
-	addSong2 $1 $2 "$3"
+	addSong $1 $2 "$3"
 elif [ $# -gt 1 ]; then
-	addSong2 $1 $2 "%(artist)s - %(title)s.%(ext)s"
+	addSong $1 $2 "%(uploader)s - %(title)s.%(ext)s"
 else
 	error "at least two arguments required"
 fi

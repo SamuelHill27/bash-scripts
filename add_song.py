@@ -1,0 +1,182 @@
+import argparse
+import os
+import subprocess
+import glob
+
+music_home_dir = os.path.expanduser("~/Music/songs-test")
+audio_ext = ".mp3"
+browser = "firefox"
+verbose = False
+
+ansi_orange = "38;5;208"
+ansi_red = "38;5;196"
+
+
+def color_text(text, color_code):
+    return f"\033[{color_code}m{text}\033[0m"
+
+
+def list_playlists():
+    playlists = list(
+            filter(
+                lambda f: os.path.isdir(os.path.join(music_home_dir, f)) and not f.startswith('.'), 
+                os.listdir(music_home_dir)
+            )
+        )
+    print(*playlists, sep="  ")
+
+
+def get_args(parser):
+    parser.add_argument(
+        "-v", "--verbose", 
+        action="store_true", 
+        help="Output helpful information during script execution"
+    )
+
+    parser.add_argument(
+        "-l", "--list",
+        action="store_true",
+        help="List all available playlists"
+    )
+
+
+def handle_args(parser):
+    args, _ = parser.parse_known_args()
+
+    global verbose 
+    verbose = args.verbose
+    
+    if verbose: print("Verbose mode enabled")
+
+    if args.list:
+        list_playlists()
+        exit(0)
+
+
+def get_metadata_args(parser):
+    parser.add_argument(
+        "-p", "--playlist", 
+        type=str, 
+        default=music_home_dir,
+        help=f"The playlist you want to save the file to (default: {music_home_dir})"
+    )
+
+    parser.add_argument(
+        "-t", "--title", 
+        type=str, 
+        default="%(title)s",
+        help=f"The title for the songs metadata you want to change (default: from video metadata)"
+    )
+
+    parser.add_argument(
+        "-a", "--artist", 
+        type=str, 
+        default="Unknown Artist",
+        help="The artist for the songs metadata you want to change (default: Unknown Artist)"
+    )
+
+    parser.add_argument(
+        "-s", "--show",
+        type=str,
+        help="The show for the songs metadata you want to specify"
+    )
+
+
+def get_user_input(args, parser):
+    if (args.playlist == parser.get_default("playlist") and
+        args.title == parser.get_default("title") and
+        args.artist == parser.get_default("artist") and
+        args.show is None 
+    ):
+        list_playlists()
+        args.playlist = input(f"Enter playlist from above (skip for none): ") or args.playlist
+        args.title = input(f"Enter title (skip for from video metadata): ") or args.title
+        args.artist = input(f"Enter artist (skip for {args.artist}): ") or args.artist
+        args.show = input(f"Enter show (skip for {args.show}): ") or args.show
+
+
+def validate_args(args):
+    if args.playlist != music_home_dir and not os.path.isdir(os.path.join(music_home_dir, args.playlist)):
+        print(color_text(f"Error: Playlist '{args.playlist}' does not exist. Use -l to list available playlists", ansi_red))
+        exit(1)
+    
+    if not args.url.startswith("http"):
+        print(color_text(f"Error: URL '{args.url}' is not valid", ansi_red))
+        exit(1)
+
+
+def download_song(args):
+    metadata = f"title:{args.title},artist:{args.artist}"
+    if args.show is not None:
+        metadata += f",show:{args.show}"
+
+    artist_or_blank = f"{args.artist} - " if args.artist != "Unknown Artist" else ""
+    show_or_blank = f" ({args.show})" if args.show is not None else ""
+    filename = f"{artist_or_blank}{args.title}{show_or_blank}{audio_ext}"
+
+    cmd = [
+        "yt-dlp",
+        "-x",
+        "--audio-format", audio_ext.lstrip('.'),
+        "--audio-quality", "0",
+        "--cookies-from-browser", browser,
+        "--ppa", "EmbedThumbnail+ffmpeg_o:-c:v mjpeg -vf crop=\"'if(gt(ih,iw),iw,ih)':'if(gt(iw,ih),ih,iw)'\"",
+        "--embed-thumbnail",
+        "--add-metadata",
+        "--parse-metadata", metadata,
+        "-o", os.path.join(music_home_dir, args.playlist, filename),
+        args.url
+    ]
+    if not verbose: cmd.insert(1, "-q")
+
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        print(color_text(f"Error: {e}", ansi_red))
+        exit(1)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=f"{os.path.basename(__file__)} downloads a youtube mp3 file to {music_home_dir}"
+    )
+
+    get_args(parser)
+    handle_args(parser)
+
+    get_metadata_args(parser)
+
+    parser.add_argument(
+        "url",
+        type=str, 
+        help="The youtube url of the song you want to download"
+    )
+
+    args, unknown_args = parser.parse_known_args()
+
+    validate_args(args)
+    get_user_input(args, parser)
+    validate_args(args)
+
+    if verbose:
+        if unknown_args != []: print(color_text(f"Warning: Unknown args: {unknown_args}", ansi_orange))
+        print(", ".join(f"{key}: {value}" for key, value in args.__dict__.items()))
+    
+    print("Downloading song...")
+    download_song(args)
+    print("Download complete!")
+
+    mp3_files = glob.glob(os.path.join(music_home_dir, f'*{audio_ext}')) + glob.glob(os.path.join(music_home_dir, args.playlist, f'*{audio_ext}'))
+    most_recent_mp3_file = max(mp3_files, key=os.path.getctime)
+    song_name = os.path.basename(most_recent_mp3_file).rsplit('.', 1)[0]
+
+    print(f'"{song_name}" saved to {os.path.join(music_home_dir, args.playlist)}')
+
+    if args.playlist != music_home_dir:
+        with open(f"{music_home_dir}/{args.playlist}/{args.playlist}.m3u", 'w+') as f:
+            for file in glob.glob(os.path.join(f"{music_home_dir}/{args.playlist}", f'*{audio_ext}')):
+                f.write(f"{os.path.basename(file)}\n")
+
+
+if __name__ == "__main__":
+    main()
