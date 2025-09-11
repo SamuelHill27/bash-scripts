@@ -147,7 +147,7 @@ def validate_args(args):
 
 def download_song(args):
     artist_or_blank = f"{args.artist} - " if args.artist != "Unknown Artist" else ""
-    show_or_blank = f" ({args.show})" if args.show is not None else ""
+    show_or_blank = f" ({args.show})" if args.show != "" else ""
     args.title += show_or_blank
     filename = f"{artist_or_blank}{args.title}{audio_ext}"
 
