@@ -132,7 +132,7 @@ def get_user_input(args, parser):
         args.playlist = input(f"Enter playlist from above (skip for none): ") or args.playlist
         args.title = input(f"Enter title (skip for from video metadata): ") or args.title
         args.artist = input(f"Enter artist (skip for {args.artist}): ") or args.artist
-        args.show = input(f"Enter show (skip for {args.show}): ") or args.show
+        args.show = input(f"Enter show (skip for none): ") or args.show
 
 
 def validate_args(args):
@@ -148,7 +148,8 @@ def validate_args(args):
 def download_song(args):
     artist_or_blank = f"{args.artist} - " if args.artist != "Unknown Artist" else ""
     show_or_blank = f" ({args.show})" if args.show is not None else ""
-    filename = f"{artist_or_blank}{args.title}{show_or_blank}{audio_ext}"
+    args.title += show_or_blank
+    filename = f"{artist_or_blank}{args.title}{audio_ext}"
 
     cmd = [
         "yt-dlp",
