@@ -163,14 +163,22 @@ def download_song(args):
         "-o", os.path.join(music_home_dir, args.playlist, filename),
         args.url
     ]
-    if not verbose: cmd.insert(1, "-q")
+
+    pip_upgrade_cmd = [
+        "pip",
+        "install",
+        "--upgrade",
+        "yt-dlp"
+    ]
+
+    if not verbose: 
+        cmd.insert(1, "-q")
+        pip_upgrade_cmd.insert(2, "-q")
+    else:
+        print("Trying to upgrade yt-dlp...")
 
     try:
-        if subprocess.run(['which', 'yt-dlp'], capture_output=True).returncode != 0:
-            print("yt-dlp not found, installing...")
-            subprocess.run(['pip', 'install', '--upgrade', 'yt-dlp'], check=True)
-            print("yt-dlp installed successfully")
-
+        subprocess.run(pip_upgrade_cmd, check=True)
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
         print(color_text(f"Error: {e}", ansi_red))
