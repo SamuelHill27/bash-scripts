@@ -22,14 +22,14 @@ def color_text(text, color_code):
     return f"\033[{color_code}m{text}\033[0m"
 
 
-def list_playlists():
+def get_playlists():
     playlists = list(
             filter(
                 lambda f: os.path.isdir(os.path.join(music_home_dir, f)) and not f.startswith('.'), 
                 os.listdir(music_home_dir)
             )
         )
-    print(*playlists, sep="  ")
+    return playlists
 
 
 def get_args(parser):
@@ -49,6 +49,12 @@ def get_args(parser):
         "-r", "--remove",
         type=str,
         help="Remove a song from the music library"
+    )
+
+    parser.add_argument(
+        "-c", "--check",
+        action="store_true",
+        help="Check if playlist contains all songs in corresponding folder"
     )
 
 
@@ -76,6 +82,22 @@ def remove_song(target_name):
     print(f"Removed '{target_name}' from {playlist}")
 
 
+def check_playlists(playlists):
+    for playlist in playlists:
+        with open(f"{music_home_dir}/{playlist}/{playlist}.m3u", 'r') as f:
+            playlist_length = len(f.readlines())
+
+        song_count = len(glob.glob(os.path.join(f"{music_home_dir}/{playlist}", f'*{audio_ext}')))
+
+        if verbose: print(f"playlist: {playlist}, playlist_length: {playlist_length}, song_count: {song_count}")
+
+        if playlist_length != song_count:
+            print(color_text(f"Playlist '{playlist}' is missing {playlist_length - song_count} song(s)", ansi_red))
+            exit(1)
+
+    print("Playlist check complete!")
+
+
 def handle_args(parser):
     args, _ = parser.parse_known_args()
 
@@ -83,12 +105,18 @@ def handle_args(parser):
     verbose = args.verbose
     if verbose: print("Verbose mode enabled")
 
+    playlists = get_playlists()
+
     if args.list:
-        list_playlists()
+        print(*playlists, sep="  ")
         exit(0)
 
     if args.remove is not None:
         remove_song(args.remove)
+        exit(0)
+
+    if args.check:
+        check_playlists(playlists)
         exit(0)
 
 
@@ -128,7 +156,7 @@ def get_user_input(args, parser):
         args.artist == parser.get_default("artist") and
         args.show == ""
     ):
-        list_playlists()
+        print(*get_playlists(), sep="  ")
         args.playlist = input(f"Enter playlist from above (skip for none): ") or args.playlist
         args.title = input(f"Enter title (skip for from video metadata): ") or args.title
         args.artist = input(f"Enter artist (skip for {args.artist}): ") or args.artist
