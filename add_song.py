@@ -213,12 +213,12 @@ def download_song(args):
         exit(1)
 
 
-def set_metadata(file_path, args):
+def set_metadata(file_path, args, parser):
     try:
         audio = MP3(file_path)
-        audio.tags["TIT2"] = TIT2(encoding=3, text=args.title)
-        audio.tags["TPE1"] = TPE1(encoding=3, text=args.artist)
-        audio.tags["TIT1"] = TIT1(encoding=3, text=args.show)
+        if parser.get_default("title") not in args.title: audio.tags["TIT2"] = TIT2(encoding=3, text=args.title)
+        if args.artist != parser.get_default("artist"): audio.tags["TPE1"] = TPE1(encoding=3, text=args.artist)
+        if args.show != "": audio.tags["TIT1"] = TIT1(encoding=3, text=args.show)
         audio.save()
     except Exception as e:
         print(color_text(f"Error setting metadata: {e}", ansi_red))
@@ -259,7 +259,7 @@ def main():
     most_recent_mp3_file = max(mp3_files, key=os.path.getctime)
 
     print("Setting metadata...")
-    set_metadata(most_recent_mp3_file, args)
+    set_metadata(most_recent_mp3_file, args, parser)
 
     song_name = os.path.basename(most_recent_mp3_file).rsplit('.', 1)[0]
     print(f'"{song_name}" added to {args.playlist}')
