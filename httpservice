@@ -19,7 +19,7 @@ error() {
 }
 
 help() {
-	echo "$scriptName provides simplified systemd syncthing.service commands"
+	echo "$scriptName provides simplified systemd httpd.service commands"
 	echo
 	echo "${bold}Usage${normal}: ${scriptName} [option] command"
 	echo "${bold}command${normal} is the name of the systemctl command you want to use."
@@ -28,22 +28,22 @@ help() {
 	echo " - ${bold}h${normal}        Print this help"
     echo
     echo "Commands:"
-    echo " - ${bold}status${normal}         Alias for 'systemctl --user" \
-            "status syncthing.service'"
-    echo " - ${bold}enable${normal}         Alias for 'systemctl --user" \
-            "enable syncthing.service'"
-    echo " - ${bold}start${normal}         Alias for 'systemctl --user" \
-            "start syncthing.service'"
+    echo " - ${bold}status${normal}         Alias for 'systemctl status" \
+            "syncthing.service'"
+    echo " - ${bold}start${normal}         Alias for 'systemctl start" \
+            "syncthing.service'"
+    echo " - ${bold}stop${normal}         Alias for 'systemctl stop" \
+            "syncthing.service'"
 }
 
-syncthing() {
-	case "$1" in
+httpd() {
+    case "$1" in
         "status")
-            systemctl --user status syncthing.service;;
-        "enable")
-            systemctl --user enable syncthing.service;;
+            systemctl status httpd.service;;
         "start")
-            systemctl --user start syncthing.service;;
+            systemctl start httpd.service;;
+        "stop")
+            systemctl stop httpd.service;;
     esac
 }
 
@@ -60,7 +60,7 @@ done
 
 # determine if an argument has been passed
 if [ $# -gt 0 ]; then
-	syncthing $1
+	httpd $1
 else
 	error "an argument is required"
 fi
