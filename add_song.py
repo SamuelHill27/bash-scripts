@@ -1,17 +1,18 @@
 import argparse
+import configparser
+import glob
 import os
 import subprocess
-import glob
-import configparser
+
+from mutagen.id3._frames import TIT1, TIT2, TPE1
 from mutagen.mp3 import MP3
-from mutagen.id3 import TIT2, TPE1, TIT1
 
 config = configparser.ConfigParser()
-config.read(os.path.join(os.path.dirname(__file__), 'config.ini'))
+config.read(os.path.join(os.path.dirname(__file__), "config.ini"))
 
-music_home_dir = os.path.expanduser(config['addsong']['music_home_dir'])
-audio_ext = config['addsong']['audio_ext']
-browser = config['addsong']['browser']
+music_home_dir = os.path.expanduser(config["addsong"]["music_home_dir"])
+audio_ext = config["addsong"]["audio_ext"]
+browser = config["addsong"]["browser"]
 
 verbose = False
 ansi_orange = "38;5;208"
@@ -24,52 +25,57 @@ def color_text(text, color_code):
 
 def get_playlists():
     playlists = list(
-            filter(
-                lambda f: os.path.isdir(os.path.join(music_home_dir, f)) and not f.startswith('.'), 
-                os.listdir(music_home_dir)
-            )
+        filter(
+            lambda f: os.path.isdir(os.path.join(music_home_dir, f))
+            and not f.startswith("."),
+            os.listdir(music_home_dir),
         )
+    )
     return playlists
 
 
 def get_args(parser):
     parser.add_argument(
-        "-v", "--verbose", 
-        action="store_true", 
-        help="Output helpful information during script execution"
-    )
-
-    parser.add_argument(
-        "-l", "--list",
+        "-v",
+        "--verbose",
         action="store_true",
-        help="List all available playlists"
+        help="Output helpful information during script execution",
     )
 
     parser.add_argument(
-        "-r", "--remove",
-        type=str,
-        help="Remove a song from the music library"
+        "-l", "--list", action="store_true", help="List all available playlists"
     )
 
     parser.add_argument(
-        "-c", "--check",
+        "-r", "--remove", type=str, help="Remove a song from the music library"
+    )
+
+    parser.add_argument(
+        "-c",
+        "--check",
         action="store_true",
-        help="Check if playlist contains all songs in corresponding folder"
+        help="Check if playlist contains all songs in corresponding folder",
     )
 
 
 def write_to_m3u(playlist):
-    with open(f"{music_home_dir}/{playlist}/{playlist}.m3u", 'w+') as f:
-            for file in glob.glob(os.path.join(f"{music_home_dir}/{playlist}", f'*{audio_ext}')):
-                f.write(f"{os.path.basename(file)}\n")
+    with open(f"{music_home_dir}/{playlist}/{playlist}.m3u", "w+") as f:
+        for file in glob.glob(
+            os.path.join(f"{music_home_dir}/{playlist}", f"*{audio_ext}")
+        ):
+            f.write(f"{os.path.basename(file)}\n")
 
 
 def remove_song(target_name):
-    search_path = os.path.join(music_home_dir, '**', f'{target_name}{audio_ext}')
+    search_path = os.path.join(music_home_dir, "**", f"{target_name}{audio_ext}")
     song_paths = glob.glob(search_path, recursive=True)
-                
+
     if song_paths is None:
-        print(color_text(f"Error: Song '{target_name}' not found in any playlist", ansi_red))
+        print(
+            color_text(
+                f"Error: Song '{target_name}' not found in any playlist", ansi_red
+            )
+        )
         exit(1)
 
     os.remove(song_paths[0])
@@ -84,15 +90,25 @@ def remove_song(target_name):
 
 def check_playlists(playlists):
     for playlist in playlists:
-        with open(f"{music_home_dir}/{playlist}/{playlist}.m3u", 'r') as f:
+        with open(f"{music_home_dir}/{playlist}/{playlist}.m3u", "r") as f:
             playlist_length = len(f.readlines())
 
-        song_count = len(glob.glob(os.path.join(f"{music_home_dir}/{playlist}", f'*{audio_ext}')))
+        song_count = len(
+            glob.glob(os.path.join(f"{music_home_dir}/{playlist}", f"*{audio_ext}"))
+        )
 
-        if verbose: print(f"playlist: {playlist}, playlist_length: {playlist_length}, song_count: {song_count}")
+        if verbose:
+            print(
+                f"playlist: {playlist}, playlist_length: {playlist_length}, song_count: {song_count}"
+            )
 
         if playlist_length != song_count:
-            print(color_text(f"Playlist '{playlist}' is missing {playlist_length - song_count} song(s)", ansi_red))
+            print(
+                color_text(
+                    f"Playlist '{playlist}' is missing {playlist_length - song_count} song(s)",
+                    ansi_red,
+                )
+            )
             exit(1)
 
     print("Playlist check complete!")
@@ -101,9 +117,10 @@ def check_playlists(playlists):
 def handle_args(parser):
     args, _ = parser.parse_known_args()
 
-    global verbose 
+    global verbose
     verbose = args.verbose
-    if verbose: print("Verbose mode enabled")
+    if verbose:
+        print("Verbose mode enabled")
 
     playlists = get_playlists()
 
@@ -122,52 +139,66 @@ def handle_args(parser):
 
 def get_metadata_args(parser):
     parser.add_argument(
-        "-p", "--playlist", 
-        type=str, 
+        "-p",
+        "--playlist",
+        type=str,
         default=music_home_dir,
-        help=f"The playlist you want to save the file to (default: {music_home_dir})"
+        help=f"The playlist you want to save the file to (default: {music_home_dir})",
     )
 
     parser.add_argument(
-        "-t", "--title", 
-        type=str, 
+        "-t",
+        "--title",
+        type=str,
         default="%(title)s",
-        help=f"The title for the songs metadata you want to change (default: from video metadata)"
+        help="The title for the songs metadata you want to change (default: from video metadata)",
     )
 
     parser.add_argument(
-        "-a", "--artist", 
-        type=str, 
+        "-a",
+        "--artist",
+        type=str,
         default="Unknown Artist",
-        help="The artist for the songs metadata you want to change (default: Unknown Artist)"
+        help="The artist for the songs metadata you want to change (default: Unknown Artist)",
     )
 
     parser.add_argument(
-        "-s", "--show",
+        "-s",
+        "--show",
         type=str,
         default="",
-        help="The show for the songs metadata you want to specify"
+        help="The show for the songs metadata you want to specify",
     )
 
 
 def get_user_input(args, parser):
-    if (args.playlist == parser.get_default("playlist") and
-        args.title == parser.get_default("title") and
-        args.artist == parser.get_default("artist") and
-        args.show == ""
+    if (
+        args.playlist == parser.get_default("playlist")
+        and args.title == parser.get_default("title")
+        and args.artist == parser.get_default("artist")
+        and args.show == ""
     ):
         print(*get_playlists(), sep="  ")
-        args.playlist = input(f"Enter playlist from above (skip for none): ") or args.playlist
-        args.title = input(f"Enter title (skip for from video metadata): ") or args.title
+        args.playlist = (
+            input("Enter playlist from above (skip for none): ") or args.playlist
+        )
+        args.title = input("Enter title (skip for from video metadata): ") or args.title
         args.artist = input(f"Enter artist (skip for {args.artist}): ") or args.artist
-        args.show = input(f"Enter show (skip for none): ") or args.show
+        args.show = input("Enter show (skip for none): ") or args.show
 
 
 def validate_args(args):
-    if args.playlist != music_home_dir and not os.path.isdir(os.path.join(music_home_dir, args.playlist)):
-        print(color_text(f"Error: Playlist '{args.playlist}' does not exist. Use -l to list available playlists", ansi_red))
+    if args.playlist != music_home_dir and not os.path.isdir(
+        os.path.join(music_home_dir, args.playlist)
+    ):
+        print(
+            color_text(
+                f"Error: Playlist '{args.playlist}' does not exist. Use -l to list available playlists",
+                ansi_red,
+            )
+        )
         exit(1)
-    
+
     if not args.url.startswith("http"):
         print(color_text(f"Error: URL '{args.url}' is not valid", ansi_red))
         exit(1)
@@ -182,24 +213,23 @@ def download_song(args):
     cmd = [
         "yt-dlp",
         "-x",
-        "--audio-format", audio_ext.lstrip('.'),
-        "--audio-quality", "0",
+        "--audio-format",
+        audio_ext.lstrip("."),
+        "--audio-quality",
+        "0",
         # "--cookies-from-browser", browser,
-        "--ppa", "EmbedThumbnail+ffmpeg_o:-c:v mjpeg -vf crop=\"'if(gt(ih,iw),iw,ih)':'if(gt(iw,ih),ih,iw)'\"",
+        "--ppa",
+        "EmbedThumbnail+ffmpeg_o:-c:v mjpeg -vf crop=\"'if(gt(ih,iw),iw,ih)':'if(gt(iw,ih),ih,iw)'\"",
         "--embed-thumbnail",
         "--add-metadata",
-        "-o", os.path.join(music_home_dir, args.playlist, filename),
-        args.url
+        "-o",
+        os.path.join(music_home_dir, args.playlist, filename),
+        args.url,
     ]
 
-    pip_upgrade_cmd = [
-        "pip",
-        "install",
-        "--upgrade",
-        "yt-dlp"
-    ]
+    pip_upgrade_cmd = ["pip", "install", "--upgrade", "yt-dlp"]
 
-    if not verbose: 
+    if not verbose:
         cmd.insert(1, "-q")
         pip_upgrade_cmd.insert(2, "-q")
     else:
@@ -216,9 +246,14 @@ def download_song(args):
 def set_metadata(file_path, args, parser):
     try:
         audio = MP3(file_path)
-        if parser.get_default("title") not in args.title: audio.tags["TIT2"] = TIT2(encoding=3, text=args.title)
-        if args.artist != parser.get_default("artist"): audio.tags["TPE1"] = TPE1(encoding=3, text=args.artist)
-        if args.show != "": audio.tags["TIT1"] = TIT1(encoding=3, text=args.show)
+        if not audio.tags:
+            raise ValueError("No tags found in the file")
+        if parser.get_default("title") not in args.title:
+            audio.tags["TIT2"] = TIT2(encoding=3, text=args.title)
+        if args.artist != parser.get_default("artist"):
+            audio.tags["TPE1"] = TPE1(encoding=3, text=args.artist)
+        if args.show != "":
+            audio.tags["TIT1"] = TIT1(encoding=3, text=args.show)
         audio.save()
     except Exception as e:
         print(color_text(f"Error setting metadata: {e}", ansi_red))
@@ -236,9 +271,7 @@ def main():
     get_metadata_args(parser)
 
     parser.add_argument(
-        "url",
-        type=str, 
-        help="The youtube url of the song you want to download"
+        "url", type=str, help="The youtube url of the song you want to download"
     )
 
     args, unknown_args = parser.parse_known_args()
@@ -248,20 +281,23 @@ def main():
     validate_args(args)
 
     if verbose:
-        if unknown_args != []: print(color_text(f"Warning: Unknown args: {unknown_args}", ansi_orange))
+        if unknown_args != []:
+            print(color_text(f"Warning: Unknown args: {unknown_args}", ansi_orange))
         print(", ".join(f"{key}: {value}" for key, value in args.__dict__.items()))
-    
+
     print("Downloading song...")
     download_song(args)
     print("Download complete!")
 
-    mp3_files = glob.glob(os.path.join(music_home_dir, f'*{audio_ext}')) + glob.glob(os.path.join(music_home_dir, args.playlist, f'*{audio_ext}'))
+    mp3_files = glob.glob(os.path.join(music_home_dir, f"*{audio_ext}")) + glob.glob(
+        os.path.join(music_home_dir, args.playlist, f"*{audio_ext}")
+    )
     most_recent_mp3_file = max(mp3_files, key=os.path.getctime)
 
     print("Setting metadata...")
     set_metadata(most_recent_mp3_file, args, parser)
 
-    song_name = os.path.basename(most_recent_mp3_file).rsplit('.', 1)[0]
+    song_name = os.path.basename(most_recent_mp3_file).rsplit(".", 1)[0]
     print(f'"{song_name}" added to {args.playlist}')
 
     if args.playlist != music_home_dir:
