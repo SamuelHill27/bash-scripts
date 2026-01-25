@@ -2,6 +2,7 @@ import argparse
 import configparser
 import glob
 import os
+import re
 import subprocess
 
 from mutagen.id3._frames import TIT1, TIT2, TPE1
@@ -55,6 +56,13 @@ def get_args(parser):
         "--check",
         action="store_true",
         help="Check if playlist contains all songs in corresponding folder",
+    )
+
+    parser.add_argument(
+        "-f",
+        "--find",
+        type=re.compile,
+        help="Determine if a song is present in the music library",
     )
 
 
@@ -114,6 +122,18 @@ def check_playlists(playlists):
     print("Playlist check complete!")
 
 
+def find_song(pattern):
+    found = False
+    for root, dirs, files in os.walk(music_home_dir):
+        for file in files:
+            if file.endswith(audio_ext) and pattern.search(file):
+                print(os.path.relpath(os.path.join(root, file), music_home_dir))
+                found = True
+
+    if not found:
+        print(f"No song found matching '{pattern}'")
+
+
 def handle_args(parser):
     args, _ = parser.parse_known_args()
 
@@ -134,6 +154,10 @@ def handle_args(parser):
 
     if args.check:
         check_playlists(playlists)
+        exit(0)
+
+    if args.find is not None:
+        find_song(args.find)
         exit(0)
 
 
