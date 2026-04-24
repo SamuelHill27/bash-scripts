@@ -1,0 +1,32 @@
+#!/bin/bash
+
+if [ -z "$1" ]; then
+    echo "Usage: datefromname <directory>"
+    exit 1
+fi
+
+directory="$1"
+echo "Selected directory: $directory"
+file_count=$(find "$directory" -maxdepth 1 -type f -name "*.webp" | wc -l)
+echo "Do you want to update $file_count files? [y/n]"
+read -r answer
+if [ "$answer" != "y" ]; then
+    exit 0
+fi
+
+for file in "$directory"/*.webp; do
+    if [ -f "$file" ]; then
+        datetime=$(echo "$file" | grep -oP '.*\K[0-9]{8}_[0-9]{6}')
+        if [ -z "$datetime" ]; then
+            echo "Error: Could not extract datetime from $file"
+            continue
+        fi
+        formatted_datetime=$(echo "$datetime" | sed 's/\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)_\([0-9]\{2\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)/\1-\2-\3 \4:\5:\6/')
+        touch -d "$formatted_datetime" "$file"
+        if [ $? -ne 0 ]; then
+            echo "Error: touch command failed"
+            exit 1
+        fi
+        echo "$file"
+    fi
+done

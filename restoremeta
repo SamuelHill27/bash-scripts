@@ -1,0 +1,19 @@
+#!/bin/bash
+
+target_directory="/home/samuelhill/Camera"
+source_directory="/run/user/1000/gvfs/mtp:host=Google_Pixel_8_39201FDJH005DP/Internal shared storage/DCIM/Camera/.stversions"
+log_directory="/home/samuelhill/bin"
+
+for file in "$source_directory"/*.jpg; do
+    if [ -f "$file" ]; then
+        webp_file="$target_directory/$(basename "${file%.jpg}.webp")"
+        if [ -f "$webp_file" ]; then
+            exiftool -TagsFromFile "$file" -All:All -overwrite_original "$webp_file"
+            if [ ! $? -eq 0 ]; then
+                echo "$(date +"%Y-%m-%d"): Warning: $webp_file metadata restoration failed for $file" >> "$log_directory"/restoremeta.log
+            fi
+        else
+            echo "$(date +"%Y-%m-%d"): Warning: $webp_file not found for $file" >> "$log_directory"/restoremeta.log
+        fi
+    fi
+done

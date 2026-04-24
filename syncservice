@@ -44,6 +44,10 @@ syncthing() {
             systemctl --user enable syncthing.service;;
         "start")
             systemctl --user start syncthing.service;;
+	"stop")
+	    systemctl --user stop syncthing.service;;
+	"disable")
+	    systemctl --user disable syncthing.service;;
     esac
 }
 

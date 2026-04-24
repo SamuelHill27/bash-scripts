@@ -1,0 +1,33 @@
+#!/bin/bash
+
+directory="/home/samuelhill/Camera"
+
+convert() {
+    extension="$2"
+    target_extension="$3"
+
+    for file in "$directory"/*."$extension"; do
+        if [ -f "$file" ]; then
+            target_file="${file%.$extension}.$target_extension"
+
+            if [ ! -f "$target_file" ]; then
+                ffmpeg -i "$file" "$target_file"
+                if [ $? -ne 0 ]; then
+                    echo "${date +"%Y-%m-%d %H:%M:%S"}: Error: ffmpeg command failed."
+                    exit 1
+                fi
+            fi
+
+            exiftool -TagsFromFile "$file" -All:All -FileModifyDate -overwrite_original "$target_file"
+            if [ $? -ne 0 ]; then
+                echo "${date +"%Y-%m-%d %H:%M:%S"}: Error: exiftool command failed."
+                exit 1
+            fi
+
+            rm "$file"
+        fi
+    done
+}
+
+convert "jpg" "webp"
+convert "mp4" "webm"
