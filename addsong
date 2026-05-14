@@ -5,4 +5,9 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
+if ! python3 -c "import mutagen" &> /dev/null; then
+    echo "mutagen is not installed. Installing..."
+    python3 -m pip install mutagen
+fi
+
 python3 "$(dirname "$0")/add_song.py" "$@" # pass all arguments to python script
